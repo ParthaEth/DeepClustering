@@ -17,7 +17,7 @@ components=[]
 for i in range(num_classes):
         loc = np.zeros((num_classes,))
         loc[i] = 1
-        components.append(tfd.MultivariateNormalDiag(loc=loc, scale_diag=np.ones((num_classes,))/3.0))
+        components.append(tfd.MultivariateNormalDiag(loc=loc, scale_diag=np.ones((num_classes,))/2.5))
 
 mix_gauss = tfd.Mixture(cat=tfd.Categorical(probs=mix*np.ones((num_classes,))), components=components)
 
@@ -48,7 +48,8 @@ def get_model(input_shape, encoding_dim):
     x = Dense(128, activation='relu')(x)
     # x = Dropout(0.5)(x)
 
-    x = Dense(encoding_dim, activation='linear')(x)
+    x = Dense(encoding_dim, activation='tanh')(x)
+    x = Lambda(lambda x: x*1.5)(x)
 
     encoder = Model(input=I_en, output=x, name='encoder')
     encoder.compile(optimizer='SGD', loss='mse')
@@ -120,7 +121,7 @@ def get_model(input_shape, encoding_dim):
     reconstructed = decoder([encoded, I_noi])
     auto_encoder = Model(input=[I, I_noi], output=[encoded, reconstructed], name='encoder_decoder')
     auto_encoder.compile(optimizer=Adamax(lr=1e-3), loss=[gmm_likelihood, "mse"],
-                         loss_weights=[0.1, 0.9])
+                         loss_weights=[0.9, 0.1])
     # auto_encoder.compile(optimizer=Adam(lr=1e-4), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])
     # auto_encoder.compile(optimizer=rmsprop(lr=1e-2), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])
     auto_encoder.summary()
