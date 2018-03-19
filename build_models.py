@@ -24,7 +24,13 @@ mix_gauss = tfd.Mixture(cat=tfd.Categorical(probs=mix*np.ones((num_classes,))), 
 
 def gmm_likelihood(y_true, y_pred):
         """y_true does not matter kept only since keras expectes loss to have this form"""
-        return -tf.cast(mix_gauss.prob(tf.cast(y_pred, tf.float64)), tf.float32) # We need to maximize this!!
+        return -K.log(tf.cast(mix_gauss.prob(tf.cast(y_pred, tf.float64)), tf.float32) + 1e-10) # We need to maximize this!!
+
+
+def mse_plus_likelihood(y_true, y_pred):
+    mse = K.sum(K.sqrt(y_true-y_pred), axis=-1) * K.sum(y_true, axis=-1) # zeroing out those for which y_true is all zeros
+    return mse + gmm_likelihood(y_true, y_pred)
+
 
 def get_model(input_shape, encoding_dim):
     # Build encoder
@@ -120,7 +126,7 @@ def get_model(input_shape, encoding_dim):
     encoded = encoder(I)
     reconstructed = decoder([encoded, I_noi])
     auto_encoder = Model(input=[I, I_noi], output=[encoded, reconstructed], name='encoder_decoder')
-    auto_encoder.compile(optimizer=Adamax(lr=1e-3), loss=[gmm_likelihood, "mse"],
+    auto_encoder.compile(optimizer=Adamax(lr=1e-3), loss=[mse_plus_likelihood, "mse"],
                          loss_weights=[0.9, 0.1])
     # auto_encoder.compile(optimizer=Adam(lr=1e-4), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])
     # auto_encoder.compile(optimizer=rmsprop(lr=1e-2), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])

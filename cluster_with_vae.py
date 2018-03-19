@@ -2,12 +2,14 @@ from keras.datasets import mnist
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
 import build_models
+from keras.utils import np_utils
 
 ####################### General param choices ###########################
 encoding_dim = 10
 batch_size = 32
 num_classes = 10
 number_of_epochs = 200
+labeled_data_per_class = 100
 
 ###################### Prepare traina and test Data ######################
 model_name = 'mnist_auto_encoder.h5'
@@ -21,6 +23,27 @@ x_train /= 255.0
 x_test /= 255.0
 x_train = x_train.reshape(x_train.shape[0], input_shape[0], input_shape[1], input_shape[2])
 x_test = x_test.reshape(x_test.shape[0], input_shape[0], input_shape[1], input_shape[2])
+y_train = np.concatenate((np_utils.to_categorical(y_train, num_classes),
+                                  np.zeros((y_train.shape[0], encoding_dim - num_classes))), axis=-1)
+y_test = np.concatenate((np_utils.to_categorical(y_test, num_classes),
+                         np.zeros((y_test.shape[0], encoding_dim - num_classes))), axis=-1)
+########################################################################
+
+################################ Zero Out random samples ###############
+labled_samples_per_class = np.zeros((num_classes,))
+for i in range(x_train.shape[0]):
+    if np.random.uniform(0, 1, 1) > 0.7:
+        class_id = np.argmax(y_train[i])
+        if labled_samples_per_class[class_id] >= labeled_data_per_class:
+            y_train[i] *= 0
+        else:
+            labled_samples_per_class[class_id] += 1
+    else:
+        y_train[i] *= 0
+
+assert (labled_samples_per_class.astype(int) == labeled_data_per_class).all(), \
+    "Not all classes have the number of samples requested!"
+
 ########################################################################
 
 ######################### Build VAE model ##############################
@@ -42,7 +65,7 @@ def _train_data_generator(x, y, batch_size, encoding_dim, embeded_cov):
         vertical_flip=False)  # randomly flip images
     datagen.fit(x)
 
-    gen = datagen.flow(x, y, batch_size=batch_size)
+    gen = datagen.flow(x, y, batch_size=batch_size, shuffle=True)
 
     while True:
         (x, y) = gen.next()
@@ -56,7 +79,7 @@ def _train_data_generator(x, y, batch_size, encoding_dim, embeded_cov):
 # Note that we don't want to use y_train so just pass zeros ####################
 try:
         auto_encoder.fit_generator(
-                _train_data_generator(x_train, 0*y_train, batch_size, encoding_dim, embeded_cov), verbose=1,
+                _train_data_generator(x_train, y_train, batch_size, encoding_dim, embeded_cov), verbose=1,
                 epochs=number_of_epochs, steps_per_epoch=x_train.shape[0]/batch_size + 1,
                 validation_data=([x_test, np.zeros((x_test.shape[0], encoding_dim))], [y_test, x_test]))
 finally:
