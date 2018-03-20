@@ -10,13 +10,14 @@ batch_size = 32
 num_classes = 10
 number_of_epochs = 200
 labeled_data_per_class = 100
+np.random.seed(1337)
 
 ###################### Prepare traina and test Data ######################
 model_name = 'mnist_auto_encoder.h5'
 img_rows, img_cols, channels = 28, 28, 1
 input_shape = (img_rows, img_cols, channels)
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
-embeded_cov = 1 / 300.0
+embeded_cov = 1 / 3000.0
 x_train = x_train.astype('float64')
 x_test = x_test.astype('float64')
 x_train /= 255.0
@@ -78,9 +79,9 @@ def _train_data_generator(x, y, batch_size, encoding_dim, embeded_cov):
 ######################### Fit the model ########################################
 # Note that we don't want to use y_train so just pass zeros ####################
 try:
-        auto_encoder.fit_generator(
-                _train_data_generator(x_train, y_train, batch_size, encoding_dim, embeded_cov), verbose=1,
-                epochs=number_of_epochs, steps_per_epoch=x_train.shape[0]/batch_size + 1,
-                validation_data=([x_test, np.zeros((x_test.shape[0], encoding_dim))], [y_test, x_test]))
+    auto_encoder.fit_generator(
+            _train_data_generator(x_train, y_train, batch_size, encoding_dim, embeded_cov), verbose=1,
+            epochs=number_of_epochs, steps_per_epoch=x_train.shape[0]/batch_size + 1,
+            validation_data=([x_test, np.zeros((x_test.shape[0], encoding_dim))], [y_test, x_test]))
 finally:
-        auto_encoder.save_weights(model_name)
+    auto_encoder.save_weights(model_name)

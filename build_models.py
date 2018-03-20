@@ -15,20 +15,21 @@ mix = 1.0/num_classes
 
 components=[]
 for i in range(num_classes):
-        loc = np.zeros((num_classes,))
-        loc[i] = 1
-        components.append(tfd.MultivariateNormalDiag(loc=loc, scale_diag=np.ones((num_classes,))/2.5))
+    loc = np.zeros((num_classes,))
+    loc[i] = 1
+    components.append(tfd.MultivariateNormalDiag(loc=loc, scale_diag=np.ones((num_classes,))/10.0))
 
 mix_gauss = tfd.Mixture(cat=tfd.Categorical(probs=mix*np.ones((num_classes,))), components=components)
 
 
 def gmm_likelihood(y_true, y_pred):
-        """y_true does not matter kept only since keras expectes loss to have this form"""
-        return -K.log(tf.cast(mix_gauss.prob(tf.cast(y_pred, tf.float64)), tf.float32) + 1e-10) # We need to maximize this!!
+    """y_true does not matter kept only since keras expectes loss to have this form"""
+    return -K.log(tf.cast(mix_gauss.prob(tf.cast(y_pred, tf.float64)), tf.float32) + 1e-10) # We need to maximize this!!
 
 
 def mse_plus_likelihood(y_true, y_pred):
-    mse = K.sum(K.sqrt(y_true-y_pred), axis=-1) * K.sum(y_true, axis=-1) # zeroing out those for which y_true is all zeros
+    # zeroing out those for which y_true is all zeros
+    mse = K.sum(K.sqare(y_true-y_pred), axis=-1) * K.sum(y_true, axis=-1)
     return mse + gmm_likelihood(y_true, y_pred)
 
 
@@ -126,7 +127,7 @@ def get_model(input_shape, encoding_dim):
     encoded = encoder(I)
     reconstructed = decoder([encoded, I_noi])
     auto_encoder = Model(input=[I, I_noi], output=[encoded, reconstructed], name='encoder_decoder')
-    auto_encoder.compile(optimizer=Adamax(lr=1e-3), loss=[mse_plus_likelihood, "mse"],
+    auto_encoder.compile(optimizer=Adamax(lr=1e-4), loss=[mse_plus_likelihood, "mse"],
                          loss_weights=[0.9, 0.1])
     # auto_encoder.compile(optimizer=Adam(lr=1e-4), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])
     # auto_encoder.compile(optimizer=rmsprop(lr=1e-2), loss=[max_likelihood, 'mse'], loss_weights=[0.01, 0.99])
